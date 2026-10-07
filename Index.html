@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #101010;
+        color: white;
+        font-family: Arial, sans-serif;
+        overflow: hidden;
+        user-select: none;
+      }
+      #game {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      canvas {
+        background: #181818;
+        border: 3px solid #333;
+        border-radius: 12px;
+        box-shadow: 0 0 30px rgba(0,0,0,0.6);
+        cursor: default;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game">
+      <canvas id="canvas" width="900" height="650"></canvas>
+    </div>
+    <script>
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      let screen = "title";
+      let draggingSnake = null;
+      let dragOffsetX = 0;
+      let dragOffsetY = 0;
+      let keys = {
+        space: false,
+        shift: false
+      };
+      let snakes = [];
+      let holes = [];
+      let message = "";
+      let messageTimer = 0;
+
+      function startGame() {
+        screen = "game";
+        snakes = [
+          {
+            x: 180,
+            y: 560,
+            length: 150,
+            angle: 0,
+            bent: false,
+            placed: false
+          },
+          {
+            x: 450,
+            y: 560,
+            length: 150,
+            angle: 0,
+            bent: false,
+            placed: false
+          },
+          {
+            x: 720,
+            y: 560,
+            length: 150,
+            angle: 0,
+            bent: false,
+            placed: false
+          }
+        ];
+        holes = [
+          {
+            x: 250,
+            y: 270,
+            type: "horizontal"
+          },
+          {
+            x: 450,
+            y: 270,
+            type: "vertical"
+          },
+          {
+            x: 650,
+            y: 270,
+            type: "bent"
+          }
+        ];
+        message = "";
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (screen === "title") {
+          drawTitle();
+        }
+        if (screen === "game") {
+          drawGame();
+        }
+        requestAnimationFrame(draw);
+      }
+
+      function drawTitle() {
+        ctx.fillStyle = "#111";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#7cff7c";
+        ctx.font = "bold 64px Arial";
+        ctx.fillText("SNAKE HOLES", 450, 210);
+        ctx.fillStyle = "#aaa";
+        ctx.font = "22px Arial";
+        ctx.fillText("made by Nemo for Wrong YSWS", 450, 255);
+        ctx.fillStyle = "#7cff7c";
+        roundRect(350, 350, 200, 75, 15);
+        ctx.fillStyle = "#111";
+        ctx.font = "bold 28px Arial";
+        ctx.fillText("PLAY", 450, 397);
+      }
+
+      function drawGame() {
+        ctx.fillStyle = "#111";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.textAlign = "center";
+        ctx.fillStyle = "white";
+        ctx.font = "bold 25px Arial";
+        ctx.fillText(
+          "Click & Drag to move the snakes",
+          450,
+          38
+        );
+        ctx.fillStyle = "#999";
+        ctx.font = "17px Arial";
+        ctx.fillText(
+          "While dragging click: Space to Rotate & Shift to Bend",
+          450,
+          66
+        );
+        holes.forEach(drawHole);
+        snakes.forEach(drawSnake);
+        ctx.fillStyle = "#555";
+        ctx.font = "15px Arial";
+        ctx.fillText(
+          "Place all 3 snakes in their matching holes :>",
+          450,
+          630
+        );
+        if (snakes.every(s => s.placed)) {
+          ctx.fillStyle = "rgba(0,0,0,0.75)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "#7cff7c";
+          ctx.font = "bold 55px Arial";
+          ctx.fillText("YOU WIN!", 450, 280);
+          ctx.fillStyle = "white";
+          ctx.font = "22px Arial";
+          ctx.fillText(
+            "All the snakes found their holes :]",
+            450,
+            325
+          );
+          ctx.fillStyle = "#7cff7c";
+          roundRect(350, 370, 200, 60, 12);
+          ctx.fillStyle = "#111";
+          ctx.font = "bold 22px Arial";
+          ctx.fillText("PLAY AGAIN", 450, 408);
+        }
+        if (messageTimer > 0) {
+          messageTimer--;
+          ctx.fillStyle = "#ff5555";
+          ctx.font = "bold 28px Arial";
+          ctx.fillText(message, 450, 110);
+        }
+      }
+
+      function drawHole(hole) {
+        ctx.save();
+        ctx.translate(hole.x, hole.y);
+        ctx.fillStyle = "#090909";
+        ctx.strokeStyle = "#555";
+        ctx.lineWidth = 10;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        if (hole.type === "horizontal") {
+          roundRect(-85, -20, 170, 40, 20);
+          ctx.stroke();
+        }
+        else if (hole.type === "vertical") {
+          roundRect(-20, -85, 40, 170, 20);
+          ctx.stroke();
+        }
+        else if (hole.type === "bent") {
+          ctx.beginPath();
+          ctx.moveTo(-65, 55);
+          ctx.lineTo(-65, -15);
+          ctx.quadraticCurveTo(-65, -65, -15, -65);
+          ctx.lineTo(65, -65);
+          ctx.lineTo(65, -25);
+          ctx.lineTo(-5, -25);
+          ctx.quadraticCurveTo(-25, -25, -25, 5);
+          ctx.lineTo(-25, 55);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawSnake(snake) {
+        if (snake.placed) {
+          return;
+        }
+        ctx.save();
+        ctx.translate(snake.x, snake.y);
+        ctx.rotate(snake.angle);
+        ctx.strokeStyle = "#7cff7c";
+        ctx.lineWidth = 22;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        if (!snake.bent) {
+          ctx.moveTo(-snake.length / 2, 0);
+          ctx.lineTo(snake.length / 2, 0);
+        } else {
+          ctx.moveTo(-snake.length / 2, 25);
+          ctx.quadraticCurveTo(
+            0,
+            -45,
+            snake.length / 2,
+            0
+          );
+        }
+        ctx.stroke();
+        let headX = snake.length / 2;
+        let headY = snake.bent ? 0 : 0;
+        ctx.fillStyle = "#aaffaa";
+        ctx.beginPath();
+        ctx.arc(headX, headY, 14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#111";
+        ctx.beginPath();
+        ctx.arc(headX + 5, headY - 5, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(headX + 5, headY + 5, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      canvas.addEventListener("mousedown", function(e) {
+        if (screen === "title") {
+          if (
+            e.offsetX >= 350 &&
+            e.offsetX <= 550 &&
+            e.offsetY >= 350 &&
+            e.offsetY <= 425
+          ) {
+            startGame();
+          }
+          return;
+        }
+        if (screen === "game") {
+          if (snakes.every(s => s.placed)) {
+            if (
+              e.offsetX >= 350 &&
+              e.offsetX <= 550 &&
+              e.offsetY >= 370 &&
+              e.offsetY <= 430
+            ) {
+              startGame();
+            }
+            return;
+          }
+          for (let i = snakes.length - 1; i >= 0; i--) {
+            const snake = snakes[i];
+            if (snake.placed) continue;
+            const dx = e.offsetX - snake.x;
+            const dy = e.offsetY - snake.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < 100) {
+              draggingSnake = snake;
+              dragOffsetX = dx;
+              dragOffsetY = dy;
+              break;
+            }
+          }
+        }
+      });
+
+      canvas.addEventListener("mousemove", function(e) {
+        if (!draggingSnake) return;
+        draggingSnake.x = e.offsetX - dragOffsetX;
+        draggingSnake.y = e.offsetY - dragOffsetY;
+      });
+
+      canvas.addEventListener("mouseup", function() {
+        if (!draggingSnake) return;
+        checkDrop(draggingSnake);
+        draggingSnake = null;
+      });
+
+      canvas.addEventListener("mouseleave", function() {
+        if (!draggingSnake) return;
+        checkDrop(draggingSnake);
+        draggingSnake = null;
+      });
+
+      document.addEventListener("keydown", function(e) {
+        if (!draggingSnake) return;
+        if (e.code === "Space") {
+          e.preventDefault();
+          draggingSnake.angle += Math.PI / 2;
+        }
+        if (e.key === "Shift") {
+          e.preventDefault();
+          draggingSnake.bent = !draggingSnake.bent;
+        }
+      });
+
+      function checkDrop(snake) {
+        let closestHole = null;
+        let closestDistance = Infinity;
+        holes.forEach(hole => {
+          const dx = snake.x - hole.x;
+          const dy = snake.y - hole.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closestHole = hole;
+          }
+        });
+        if (!closestHole || closestDistance > 90) {
+          return;
+        }
+        let correct = false;
+        if (
+          closestHole.type === "horizontal" &&
+          !snake.bent &&
+          isHorizontal(snake.angle)
+        ) {
+          correct = true;
+        }
+        if (
+          closestHole.type === "vertical" &&
+          !snake.bent &&
+          isVertical(snake.angle)
+        ) {
+          correct = true;
+        }
+        if (
+          closestHole.type === "bent" &&
+          snake.bent
+        ) {
+          correct = true;
+        }
+        if (correct) {
+          snake.placed = true;
+          snake.x = closestHole.x;
+          snake.y = closestHole.y;
+        } else {
+          message = "WRONG HOLE :p";
+          messageTimer = 45;
+          snake.x = 150 + Math.random() * 600;
+          snake.y = 520 + Math.random() * 60;
+        }
+      }
+
+      function isHorizontal(angle) {
+        let degrees =
+          ((angle * 180 / Math.PI) % 180 + 180) % 180;
+        return degrees < 20 || degrees > 160;
+      }
+
+      function isVertical(angle) {
+        let degrees = 
+          ((angle * 180 / Math.PI) % 180 + 180) % 180;
+        return Math.abs(degrees - 90) < 20;
+      }
+
+      function roundRect(x, y, width, height, radius) {
+        ctx.beginPath();
+        ctx.roundRect(
+          x,
+          y,
+          width,
+          height,
+          radius
+        );
+        ctx.fill();
+      }
+      
+      draw();
+    </script>
+  </body>
+</html>
